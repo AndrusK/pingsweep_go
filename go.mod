@@ -1,3 +1,3 @@
-module github.com/AndrusK/pingsweep
+module github.com/AndrusK/pingsweep_go
 
 go 1.18
