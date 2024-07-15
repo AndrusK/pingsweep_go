@@ -2,14 +2,17 @@ package main
 
 import (
 	"encoding/csv"
-	"flag"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spf13/pflag"
 )
 
 type IPResult struct {
@@ -22,13 +25,13 @@ func main() {
 	var startIP, endIP, outputFile string
 
 	// Define command-line flags
-	flag.StringVar(&startIP, "start", "", "Starting IP address")
-	flag.StringVar(&endIP, "end", "", "Ending IP address")
-	flag.StringVar(&outputFile, "output", "", "Output CSV file name")
-	flag.Parse()
+	pflag.StringVarP(&startIP, "start", "s", "", "Starting IP address")
+	pflag.StringVarP(&endIP, "end", "e", "", "Ending IP address")
+	pflag.StringVarP(&outputFile, "output", "o", "", "Output CSV file name (optional)")
+	pflag.Parse()
 
-	if startIP == "" || endIP == "" || outputFile == "" {
-		flag.PrintDefaults()
+	if startIP == "" || endIP == "" {
+		pflag.PrintDefaults()
 		os.Exit(1)
 	}
 
@@ -97,33 +100,40 @@ func main() {
 	// Sort results by distance
 	sortByDistance(allResults)
 
-	// Open output CSV file
-	file, err := os.Create(outputFile)
-	if err != nil {
-		fmt.Println("Error creating output file:", err)
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	// Create CSV writer
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write CSV header
-	header := []string{"IP", "Hostname"}
-	if err := writer.Write(header); err != nil {
-		fmt.Println("Error writing header to CSV:", err)
-		os.Exit(1)
-	}
-
-	// Write sorted results to CSV
-	for _, result := range allResults {
-		record := []string{result.IP, result.Hostname}
-		if err := writer.Write(record); err != nil {
-			fmt.Println("Error writing result to CSV:", err)
-			// Optionally, handle the error or log it
+	// If output file is provided, write results to CSV
+	if outputFile != "" {
+		file, err := os.Create(outputFile)
+		if err != nil {
+			fmt.Println("Error creating output file:", err)
+			os.Exit(1)
 		}
-		fmt.Printf("Wrote to CSV: %s, %s\n", result.IP, result.Hostname)
+		defer file.Close()
+
+		// Create CSV writer
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
+
+		// Write CSV header
+		header := []string{"IP", "Hostname"}
+		if err := writer.Write(header); err != nil {
+			fmt.Println("Error writing header to CSV:", err)
+			os.Exit(1)
+		}
+
+		// Write sorted results to CSV
+		for _, result := range allResults {
+			record := []string{result.IP, result.Hostname}
+			if err := writer.Write(record); err != nil {
+				fmt.Println("Error writing result to CSV:", err)
+			}
+			fmt.Printf("Wrote to CSV: %s, %s\n", result.IP, result.Hostname)
+		}
+	} else {
+		// Print results to console if no output file is specified
+		fmt.Println("IP, Hostname")
+		for _, result := range allResults {
+			fmt.Printf("%s, %s\n", result.IP, result.Hostname)
+		}
 	}
 
 	// Calculate and print the elapsed time
@@ -133,7 +143,12 @@ func main() {
 
 func ping(ipStr string) bool {
 	// Function to perform ICMP ping
-	cmd := exec.Command("ping", "-c", "1", ipStr)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("ping", "-n", "1", ipStr)
+	} else {
+		cmd = exec.Command("ping", "-c", "1", ipStr)
+	}
 	err := cmd.Run()
 	return err == nil
 }
@@ -180,14 +195,7 @@ func ipToInt(ip net.IP) int {
 }
 
 func sortByDistance(results []IPResult) {
-	// Sort IPResults by Distance
-	for i := 0; i < len(results)-1; i++ {
-		for j := i + 1; j < len(results); j++ {
-			if results[i].Distance > results[j].Distance {
-				results[i], results[j] = results[j], results[i]
-			}
-		}
-	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Distance < results[j].Distance
+	})
 }
-
-
