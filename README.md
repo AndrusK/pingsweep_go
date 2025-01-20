@@ -19,12 +19,12 @@ This Go program performs a sweep of IP addresses in a given range and outputs th
 
 1. Clone this repository:
     ```bash
-    git clone https://github.com/your-repo/ip-ping-sweep.git
+    git clone https://github.com/AndrusK/pingsweep_go.git
     ```
 
 2. Navigate into the project directory:
     ```bash
-    cd ip-ping-sweep
+    cd pingsweep_go
     ```
 
 3. Install required dependencies:
